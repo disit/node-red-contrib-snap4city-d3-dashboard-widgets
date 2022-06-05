@@ -69,7 +69,8 @@
     "node-red": {
         "nodes": {
             "dashboard-calendar": "dashboard-calendar.js",
-            "snap4city-authentication": "snap4city-authentication.js"
+            "snap4city-authentication": "snap4city-authentication.js",
+            "dashboard-snap4d3": "dashboard-snap4d3.js"
         }
     }
 }
