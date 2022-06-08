@@ -1,7 +1,7 @@
-/* NODE-RED-CONTRIB-SNAP4CITY-D3-DASHBOARD-WIDGETS
-   Copyright (C) 2022 DISIT Lab http://www.disit.org - University of Florence
+/* NODE-RED-CONTRIB-SNAP4CITY-USER
+   Copyright (C) 2018 DISIT Lab http://www.disit.org - University of Florence
 
-    This program is free software: you can redistribute it and/or modify
+   This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU Affero General Public License as
    published by the Free Software Foundation, either version 3 of the
    License, or (at your option) any later version.
@@ -12,13 +12,10 @@
    GNU Affero General Public License for more details.
 
    You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+   along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+   module.exports = function (RED) {
 
-   Please note that the usage of  this module is subjected 
-   to the D3.JS license that can be recovered from https://github.com/d3/d3 */
-module.exports = function (RED) {
-
-    function Snap4cityAuthentication(config) {
+    function Snap4cityAuthenticationD3(config) {
         RED.nodes.createNode(this, config);
         var node = this;
         node.name = config.name;
@@ -162,7 +159,7 @@ module.exports = function (RED) {
 
     }
 
-    RED.httpAdmin.post("/retrieveAccessTokenAuthentication/", RED.auth.needsPermission('snap4city-authentication.read'), function (req, res) {
+    RED.httpAdmin.post("/retrieveAccessTokenAuthenticationD3/", RED.auth.needsPermission('snap4city-authentication-d3.read'), function (req, res) {
         var s4cUtility = require("./snap4city-utility.js");
         res.json({
             "accessToken": s4cUtility.retrieveAccessToken(RED, RED.nodes.getNode(req.body.nodeId), req.body.authenticationNodeId, null),
@@ -171,7 +168,7 @@ module.exports = function (RED) {
         });
     });
 
-    RED.nodes.registerType("snap4city-authentication", Snap4cityAuthentication, {
+    RED.nodes.registerType("snap4city-authentication-d3", Snap4cityAuthenticationD3, {
         credentials: {
             user: {
                 type: "text"

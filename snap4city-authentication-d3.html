@@ -1,7 +1,7 @@
-<!--/* NODE-RED-CONTRIB-SNAP4CITY-D3-DASHBOARD-WIDGETS
-   Copyright (C) 2022 DISIT Lab http://www.disit.org - University of Florence
+<!--/* NODE-RED-CONTRIB-SNAP4CITY-USER
+   Copyright (C) 2018 DISIT Lab http://www.disit.org - University of Florence
 
- This program is free software: you can redistribute it and/or modify
+   This program is free software: you can redistribute it and/or modify
    it under the terms of the GNU Affero General Public License as
    published by the Free Software Foundation, either version 3 of the
    License, or (at your option) any later version.
@@ -12,12 +12,9 @@
    GNU Affero General Public License for more details.
 
    You should have received a copy of the GNU Affero General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-   Please note that the usage of  this module is subjected 
-   to the D3.JS license that can be recovered from https://github.com/d3/d3 */-->
-<script type="text/javascript">
-    RED.nodes.registerType('snap4city-authentication', {
+   along with this program.  If not, see <http://www.gnu.org/licenses/>. */-->
+   <script type="text/javascript">
+    RED.nodes.registerType('snap4city-authentication-d3', {
         category: 'config',
         defaults: {
             name: {
@@ -43,12 +40,12 @@
             $(".editor-tray-toolbar button.leftButton").attr("disabled", true)
         },
         label: function () {
-            return this.name || 'snap4city-authentication';
+            return this.name || 'snap4city-authentication-d3';
         }
     });
 </script>
 
-<script type="text/x-red" data-template-name="snap4city-authentication">
+<script type="text/x-red" data-template-name="snap4city-authentication-d3">
     <input type="hidden" id="node-config-input-oldName">
     <div class="form-row">
         <label for="node-config-input-name">

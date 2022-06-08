@@ -79,9 +79,9 @@
         align: 'right',
         oneditprepare: function () {
             $("#node-input-currentNodeId").val(this.id);
-            var accessToken = getDashboardUserInfoAndCreateSelection();
+            var accessToken = getDashboardUserInfoAndCreateSelectionD3();
 				$("#node-input-authentication").change(function () {
-					getDashboardUserInfoAndCreateSelection();
+					getDashboardUserInfoAndCreateSelectionD3();
 			});
             $('#node-input-flowName').val($("li.red-ui-tab.ui-draggable.active a").attr("title"));
             $('#node-dashboard-edit').click(function () {
@@ -190,7 +190,7 @@
                                         if (_data.result) {
                                     if (_data.result.toLowerCase() == "ok") {
                                         $("#node-input-selectedDashboardId").val(_data.dashboardId);
-                                        getDashboardUserInfoAndCreateSelection();
+                                        getDashboardUserInfoAndCreateSelectionD3();
                                     } else {
                                         alert(_data.errormsg);
                                     }
@@ -224,7 +224,7 @@
                                 if (_data.result) {
                                     if (_data.result.toLowerCase() == "ok") {
                                         $("#node-input-selectedDashboardId").val(_data.dashboardId);
-                                        getDashboardUserInfoAndCreateSelection();
+                                        getDashboardUserInfoAndCreateSelectionD3();
                                     } else {
                                         alert(_data.errormsg);
                                     }
@@ -244,6 +244,101 @@
             $("#node-input-selectedDashboardId").val($("#node-input-dashboardId").val());
         }
     });
+
+    var getDashboardUserInfoAndCreateSelectionD3 = function () {
+        var accessToken = "";
+        var username = "";
+        var dashboardList = "";
+        
+        $.ajax({
+            url: "retrieveAccessTokenAuthenticationD3",
+            type: "POST",
+            async: false,
+            dataType: "json",
+            data: {
+                "authenticationNodeId": $("#node-input-authentication").val(),
+                "nodeId": $("#node-input-currentNodeId").val()
+            },
+            success: function (_data) {
+                if (_data.accessToken == "") {
+                    $("#selectDashboardContainer").hide();
+                    $("#selectWidgetName").hide();
+                    $('#node-dashboard-view').hide();
+                    $('#node-dashboard-edit').hide();
+                    $('#tipAuthenticationWrong').show();
+                    $('#tipAuthentication').hide();
+                } else {
+                    $("#selectDashboardContainer").show();
+                    $("#selectWidgetName").show();
+                    $('#node-dashboard-view').show();
+                    $('#node-dashboard-edit').show();
+                    $('#tipAuthenticationWrong').hide();
+                    $('#tipAuthentication').show();
+                    username = _data.username;
+                    accessToken = _data.accessToken;
+                };
+            }
+        });
+                
+        $("#node-input-username").val(username);
+        refreshDashboardSelectionD3(username, accessToken, dashboardList);
+        return accessToken;
+    };
+
+    var refreshDashboardSelectionD3 = function (username, accessToken, dashboardList) {
+        $("#node-input-dashboardId").empty();
+        if (dashboardList != "") {
+            createDashboardSelectionD3(dashboardList);
+        } else if (username != "" && accessToken != "" && dashboardList == "") {
+            $.ajax({
+                url: "dashboardManagerBaseUrl",
+                type: "GET",
+                async: false,
+                success: function (_data) {
+                    var domain = (RED.nodes.node($("#node-input-authentication").val()) != null ? RED.nodes.node($("#node-input-authentication").val()).domain: "");
+                    if (domain != ""){
+                        _data.dashboardManagerBaseUrl = domain + "/dashboardSmartCity";
+                    }
+                    $.ajax({
+                        url: _data.dashboardManagerBaseUrl +
+                            "/api/nodeRedDashboardsApi.php?v3&username=" + username + "&accessToken=" +
+                            accessToken,
+                        type: "GET",
+                        async: true,
+                        dataType: "json",
+                        success: function (_data) {
+                            createDashboardSelectionD3(_data);
+                        },
+                        error: function (err) {
+                            $("#createNewDashboardTitle").click();
+                            console.log(err);
+                        }
+                    });
+                }
+            });
+        }
+    }
+
+    var createDashboardSelectionD3 = function (currentDashboardList) {
+        console.log(currentDashboardList);
+        if (currentDashboardList.length != 0) {
+            $('#node-dashboard-view').show();
+            $('#node-dashboard-edit').show();
+            $("#node-input-dashboardId").empty();
+            var currentValue = $("#node-input-selectedDashboardId").val();
+            for (var i = 0; i < currentDashboardList.length; i++) {
+                $("<option value='" + currentDashboardList[i].id + "'>" +
+                    decodeURI(currentDashboardList[i].title.replace(
+                        /\+/g, " ")) + "</option>")
+                    .appendTo($("#node-input-dashboardId"));
+
+            }
+            $("#node-input-dashboardId").val(currentValue);
+            $("#backDashboardTitle").click();
+        } else {
+            $("#createNewDashboardTitle").click();
+        }
+    }
 </script>
 
 
