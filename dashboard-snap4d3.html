@@ -1,0 +1,659 @@
+<!--/* NODE-RED-CONTRIB-SNAP4CITY-USER
+   Copyright (C) 2018 DISIT Lab http://www.disit.org - University of Florence
+
+   This program is free software: you can redistribute it and/or modify
+   it under the terms of the GNU Affero General Public License as
+   published by the Free Software Foundation, either version 3 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Affero General Public License for more details.
+
+   You should have received a copy of the GNU Affero General Public License
+   along with this program.  If not, see <http://www.gnu.org/licenses/>. */-->
+<style type="text/css">
+    .dashboardBtn {
+        background: #AD1625;
+        border: none;
+        color: #eee !important;
+        padding-top: 5px;
+        padding-bottom: 5px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+</style>
+
+<script type="text/javascript">
+    RED.nodes.registerType('Snap4D3', {
+        category: 'S4CDashboard',
+        color: '#00a2d3',
+        defaults: {
+            selectedDashboardId: {
+                value: "",
+            },
+
+
+            flowName: {
+                value: ""
+            },
+            authentication: {
+                type: "snap4city-authentication",
+                required: false
+            },
+            username: {
+                value: ""
+            },
+            name: {
+                value: "",
+                required: true
+            },
+
+            dashboardId: {
+                value: "",
+                required: true
+            },
+            metricType: {
+                value: "Percentuale"
+            },
+            startValue: {
+                value: 0
+            },
+            metricShortDesc: {
+                value: ""
+            },
+            metricFullDesc: {
+                value: ""
+            },
+            d3Configuration: {
+                value: "",
+                required: true
+            }
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: "",
+        label: function () {
+            return this.name || "Snap4D3";
+        },
+        paletteLabel: function () {
+            return this.name || "Snap4D3";
+        },
+        align: 'right',
+        oneditprepare: function () {
+            $("#node-input-currentNodeId").val(this.id);
+            var accessToken = getDashboardUserInfoAndCreateSelection();
+            $("#node-input-authentication").change(function () {
+                getDashboardUserInfoAndCreateSelection();
+            });
+            $('#node-input-flowName').val($("li.red-ui-tab.ui-draggable.active a").attr("title"));
+            $('#node-dashboard-edit').click(function () {
+                if ($('#node-input-dashboardId').val() != null && $('#node-input-dashboardId')
+                    .val() != "") {
+                    $.ajax({
+                        url: "dashboardManagerBaseUrl",
+                        type: "GET",
+                        async: true,
+                        success: function (_data) {
+                            var domain = (RED.nodes.node($("#node-input-authentication").val()) != null ? RED.nodes.node($("#node-input-authentication").val()).domain : "");
+                            if (domain != "") {
+                                _data.dashboardManagerBaseUrl = domain + "/dashboardSmartCity";
+                            }
+                            window.open(_data.dashboardManagerBaseUrl +
+                                "/controllers/openNRDashboardEditor.php?dashboardId=" +
+                                $('#node-input-dashboardId').val(),
+                                '_blank');
+                        }
+                    });
+                } else {
+                    alert("Select a dashboard or enter the name of a new one");
+                }
+            });
+
+            $('#node-dashboard-view').click(function () {
+                if ($('#node-input-dashboardId').val() != null && $(
+                    '#node-input-dashboardId')
+                    .val() != "") {
+                    $.ajax({
+                        url: "dashboardManagerBaseUrl",
+                        type: "GET",
+                        async: true,
+                        success: function (_data) {
+                            var domain = (RED.nodes.node($("#node-input-authentication").val()) != null ? RED.nodes.node($("#node-input-authentication").val()).domain : "");
+                            if (domain != "") {
+                                _data.dashboardManagerBaseUrl = domain + "/dashboardSmartCity";
+                            }
+                            window.open(_data.dashboardManagerBaseUrl +
+                                "/controllers/openNRDashboardViewer.php?dashboardId=" +
+                                $('#node-input-dashboardId').val(),
+                                '_blank'
+                            );
+                        }
+                    });
+                } else {
+                    alert("Select a dashboard or enter the name of a new one");
+                }
+            });
+
+            $("#createNewDashboardTitle").click(function () {
+                $("#node-input-dashboardId").hide();
+                $("#node-input-dashboardId").val("");
+                $("#createNewDashboardTitle").hide();
+                $("#node-input-dashboardTitle").show();
+                $("#createNewDashboardButton").show();
+                $("#backDashboardTitle").show();
+                $("#node-dashboard-view").hide();
+                $("#node-dashboard-edit").hide();
+                $("#node-input-tip").show();
+
+                $("#node-input-dashboardTitle").val($("#node-input-dashboardTitleInserted").val());
+                $('#node-input-dashboardTitle').keypress(function (e) {
+                    var txt = String.fromCharCode(e.which);
+                    if (!txt.match(/[A-Za-z0-9&. ]/)) {
+                        return false;
+                    }
+                });
+            });
+
+            $("#backDashboardTitle").click(function () {
+                $("#node-input-dashboardTitle").val("");
+                $("#node-input-dashboardTitle").hide();
+                $("#node-input-dashboardId").show();
+                $("#createNewDashboardTitle").show();
+                $("#createNewDashboardButton").hide();
+                $("#backDashboardTitle").hide();
+                $("#node-dashboard-view").show();
+                $("#node-dashboard-edit").show();
+                $("#node-input-tip").hide();
+
+            });
+
+            $("#createNewDashboardButton").click(function () {
+                if ($("#node-input-dashboardTitle").val() != "") {
+                    if (accessToken != "") {
+                        $.ajax({
+                            url: "dashboardManagerBaseUrl",
+                            type: "GET",
+                            async: true,
+                            success: function (_data) {
+                                var domain = (RED.nodes.node($("#node-input-authentication").val()) != null ? RED.nodes.node($("#node-input-authentication").val()).domain : "");
+                                if (domain != "") {
+                                    _data.dashboardManagerBaseUrl = domain + "/dashboardSmartCity";
+                                }
+                                $.ajax({
+                                    url: _data.dashboardManagerBaseUrl + "/controllers/createDashboardFromNR.php?dashboardTitle="
+                                        + encodeURIComponent($("#node-input-dashboardTitle").val()) + "&accessToken=" + accessToken,
+                                    type: "GET",
+                                    async: true,
+                                    success: function (_data) {
+                                        try {
+                                            _data = JSON.parse(_data)
+                                        } catch (e) {
+                                            console.log(e);
+                                        }
+                                        if (_data.result) {
+                                            if (_data.result.toLowerCase() == "ok") {
+                                                $("#node-input-selectedDashboardId").val(_data.dashboardId);
+                                                getDashboardUserInfoAndCreateSelection();
+                                            } else {
+                                                alert(_data.errormsg);
+                                            }
+                                        }
+                                    },
+                                    error: function (_error) {
+                                        console.log(_error);
+                                    }
+                                });
+                            },
+                            error: function (_error) {
+                                console.log(_error);
+                            }
+                        });
+                    } else {
+                        $.ajax({
+                            url: "createDashboard/",
+                            type: "POST",
+                            async: true,
+                            dataType: "json",
+                            data: {
+                                "dashboardTitle": $("#node-input-dashboardTitle").val(),
+                                "authenticationNodeId": $("#node-input-authentication").val(),
+                                "authenticationNodeDomain": RED.nodes.node($("#node-input-authentication").val()).domain
+                            },
+                            success: function (_data) {
+                                try {
+                                    _data = JSON.parse(_data)
+                                } catch (e) {
+                                    console.log(e);
+                                }
+                                if (_data.result) {
+                                    if (_data.result.toLowerCase() == "ok") {
+                                        $("#node-input-selectedDashboardId").val(_data.dashboardId);
+                                        getDashboardUserInfoAndCreateSelection();
+                                    } else {
+                                        alert(_data.errormsg);
+                                    }
+                                }
+                            },
+                            error: function (_error) {
+                                console.log(_error);
+                            }
+                        });
+                    }
+                } else {
+                    alert("To create a new dashboard you must insert the name of the dashboard");
+                }
+            });
+
+            const d3JSConfiguration = $("#node-input-d3Configuration").val()
+
+            this.editor = RED.editor.createEditor({
+                id: 'node-input-js-editor',
+                mode: 'ace/mode/javascript',
+                value: (d3JSConfiguration == "" ? "insert here your D3 code" : d3JSConfiguration)
+            });
+        },
+        oneditsave: function () {
+            $("#node-input-selectedDashboardId").val($("#node-input-dashboardId").val());
+            $("#node-input-d3Configuration").val(this.editor.getValue());
+            this.editor.destroy();
+            delete this.editor;
+        },
+        oneditcancel: function () {
+            this.editor.destroy();
+            delete this.editor;
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="Snap4D3">
+    <input type="hidden" id="node-input-username">
+    <input type="hidden" id="node-input-flowName">
+    <input type="hidden" id="node-input-currentNodeId">
+    <input type="hidden" id="node-input-selectedDashboardId">
+    <textarea id="node-input-d3Configuration" style="display:none;"> </textarea>
+
+
+    <div class="form-row" id="rowAuthentication">
+        <label for="node-input-authentication">Authentication</label>
+        <input type="text" id="node-input-authentication">
+    </div>
+    <div class="form-row" id="selectDashboardContainer">
+        <label for="node-input-dashboardTitle">
+            <i class="fa fa-dashboard"></i>Dashboard Name</label>
+        <input type="text" autocomplete="off" id="node-input-dashboardTitle" placeholder="Dashboard Name" style="display:none; width: 55%;">
+        <select id="node-input-dashboardId" style="width: 55%;">
+        </select>
+        <button id="createNewDashboardTitle" >New Dashboard</button>
+        <button id="createNewDashboardButton" style="display:none">Create</button>
+        <button id="backDashboardTitle" style="display:none">Show list</button>
+    </div>
+    <div class="form-row" id="selectWidgetName">
+        <label for="node-input-name">
+            <i class="icon-tag"></i> Widget Name</label>
+        <input type="text" autocomplete="off" id="node-input-name" placeholder="Widget Name">
+    </div>
+    <div class="form-row">
+        <button class="dashboardBtn" click="openDashboardEditor" role="button" aria-disabled="false" id="node-dashboard-edit">
+            Edit Dashboard
+        </button>
+        <button class="dashboardBtn" click="openDashboardViewer" role="button" aria-disabled="false" id="node-dashboard-view">
+            View Dashboard
+        </button>
+    </div>
+    <div id="node-input-tip" class="form-tips" style="display:none">The new dashboard is created entering the title andclicking on create
+    </div>
+    <div class="form-tips"  id="tipAuthentication" style="max-width: none">
+		You must have an account with Snap4city to use this node. You can register for one <a href="https://www.snap4city.org" target="_blank">here</a>.
+    </div>
+    <div class="form-tips" id="tipAuthenticationWrong" style="display:none; max-width: none">
+        Maybe the authentication data are wrong. Check them and redeploy the node.
+    </div>
+    <div class="form-tips"  id="tipAuthenticationRedeploy" style="display:none; max-width: none">
+        Deploy the node to retrieve the updated list of dashboards.
+    </div>
+    <div class="form-tips"  id="tipAuthenticationDeployFirstTime" style="display:none; max-width: none">
+        Insert the authentication data and deploy the node to retrieve the updated list of dashboards.
+	</div>
+    <div class="form-row" id="d3Configuration">
+        <label for="node-input-d3Configuration" style="font-weight: bold;">
+            <i class="icon-tag"></i> D3 Configuration Code
+        </label>
+        <div style="height: 250px; min-height:250px; width: 100%; max-width: none" class="node-text-editor" id="node-input-js-editor"></div>        
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="Snap4D3">
+    <p>With this node you can add a custom D3 widget to an existing dashboard or a new one created by the node.</p>
+    
+    <h3>Input</h3>
+    <dl class="message-properties">
+        <dd>The data to be sent to the widget</dd>
+    </dl>
+
+
+    <h3>Configuration</h3>
+
+    <dl class="message-properties">
+        <dt>ATTENTION
+            <span class="property-type">string</span>
+        </dt>
+        <dd>This node accepts a D3 configuration as an input payload or as input directly on the node's form.</dd>
+        <dd>If the configuration is sent as a payload to the node, then the code in the node module is ignored, so the payload configuration takes precedence.</dd>
+
+        <dt>dashboard
+            <span class="property-type">string</span>
+        </dt>
+        <dd>Dashboard title to which D3 widget will be added</dd>
+        <dt>widget
+            <span class="property-type">string</span>
+        </dt>
+        <dd> Title of the D3 widget.</dd>
+        <dt>D3 configuration code
+            <span class="property-type">string</span>
+        </dt>
+        <dd>JS function that encapsulate D3 native code</dd>
+        <dt>Template</dt>
+        <dd>
+            <pre>
+                /**
+                * 
+                * @param  d3: instance of D3 library
+                * @param  d3Data: data sent by node-red for rendering with D3.
+                * @param  width : width of the widget display space
+                * @param  height :height of the widget display space 
+                * @param  sendToNodeRed: function used to send back data from widget to node-red
+                * @returns a Promise that must be resolved with a D3 chart instance
+                */
+                async function drawD3Chart(d3,d3Data,width,height,sendToNodeRed){
+                    // DON'T CHANGE the function name
+                    // INSERT YOUR CODE HERE    
+                }
+            </pre>
+        </dd>
+
+        <dt>D3 configuration code as input payload of Snap4D3 node
+            <span class="property-type">string</span>
+        </dt>
+        <dd>JS code template to copy in a function node</dd>
+        <dt>Template</dt>
+        <dd>
+            <pre>
+                
+                const d3Configuration=String.raw`
+                /**
+                * 
+                * @param  d3: instance of D3 library
+                * @param  d3Data: data sent by node-red for rendering with D3.
+                * @param  width : width of the widget display space
+                * @param  height :height of the widget display space 
+                * @param  sendToNodeRed: function used to send back data from widget to node-red
+                * @returns a Promise that must be resolved with a D3 chart instance
+                */
+                async function drawD3Chart(d3,d3Data,width,height,sendToNodeRed){
+                    // DON'T CHANGE the function name
+                    // INSERT YOUR CODE HERE    
+                }
+                `;
+
+                // ATTENTION: you should use the following line to send a D3 configuration to Snap4D3 node as an input payload
+                msg["configuration"]=d3Configuration;
+                return msg;
+            </pre>
+        </dd>
+    </dl>
+
+    <h3>Output</h3>
+    <dl class="message-properties">
+        <dd>Returns the data sent by the D3 widget</dd>
+    </dl>
+
+    <h3>Example of D3 configuration as an input of node's form</h3>
+    <pre>
+        
+        /**
+        * 
+        * @param  d3: instance of D3 library
+        * @param  d3Data: data sent by node-red for rendering with D3.
+        * @param  width : width of the widget display space
+        * @param  height :height of the widget display space 
+        * @param  sendToNodeRed: function used to send back data from widget to node-red
+        * @returns D3 chart instance
+        */
+        async function drawD3Chart(d3,d3Data,width,height,sendToNodeRed){
+
+            function BarChart(data, {
+                x = (d, i) => i, // given d in data, returns the (ordinal) x-value
+                y = d => d, // given d in data, returns the (quantitative) y-value
+                title, // given d in data, returns the title text
+                marginTop = 20, // the top margin, in pixels
+                marginRight = 0, // the right margin, in pixels
+                marginBottom = 30, // the bottom margin, in pixels
+                marginLeft = 40, // the left margin, in pixels
+                width = 640, // the outer width of the chart, in pixels
+                height = 400, // the outer height of the chart, in pixels
+                xDomain, // an array of (ordinal) x-values
+                xRange = [marginLeft, width - marginRight], // [left, right]
+                yType = d3.scaleLinear, // y-scale type
+                yDomain, // [ymin, ymax]
+                yRange = [height - marginBottom, marginTop], // [bottom, top]
+                xPadding = 0.1, // amount of x-range to reserve to separate bars
+                yFormat, // a format specifier string for the y-axis
+                yLabel, // a label for the y-axis
+                color = "currentColor" // bar fill color
+            } = {}) {
+
+                // Compute values.
+                const X = d3.map(data, x);
+                const Y = d3.map(data, y);
+            
+                // Compute default domains, and unique the x-domain.
+                if (xDomain === undefined) {xDomain = X;}
+                if (yDomain === undefined) {yDomain = [0, d3.max(Y)];}
+                xDomain = new d3.InternSet(xDomain);
+            
+                // Omit any data not present in the x-domain.
+                const I = d3.range(X.length).filter(i => xDomain.has(X[i]));
+            
+                // Construct scales, axes, and formats.
+                const xScale = d3.scaleBand(xDomain, xRange).padding(xPadding);
+                const yScale = yType(yDomain, yRange);
+                const xAxis = d3.axisBottom(xScale).tickSizeOuter(0);
+                const yAxis = d3.axisLeft(yScale).ticks(height / 40, yFormat);
+            
+                // Compute titles.
+                if (title === undefined) {
+                    const formatValue = yScale.tickFormat(100, yFormat);
+                    title = i => `${X[i]}\n${formatValue(Y[i])}`;
+                } else {
+                    const O = d3.map(data, d => d);
+                    const T = title;
+                    title = i => T(O[i], i, data);
+                }
+            
+                const svg = d3.create("svg")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr("viewBox", [0, 0, width, height])            
+                    .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+            
+                svg.append("g")
+                    .attr("transform", `translate(${marginLeft},0)`)
+                    .call(yAxis)
+                    .call(g => g.select(".domain").remove())
+                    .call(g => g.selectAll(".tick line").clone()
+                        .attr("x2", width - marginLeft - marginRight)
+                        .attr("stroke-opacity", 0.1))
+                    .call(g => g.append("text")
+                        .attr("x", -marginLeft)
+                        .attr("y", 10)
+                        .attr("fill", "currentColor")
+                        .attr("text-anchor", "start")
+                        .text(yLabel));
+            
+                const bar = svg.append("g")
+                    .attr("fill", color)
+                    .selectAll("rect")
+                    .data(I)
+                    .join("rect")
+                    .attr("x", i => xScale(X[i]))
+                    .attr("y", i => yScale(Y[i]))
+                    .attr("height", i => yScale(0) - yScale(Y[i]))
+                    .attr("width", xScale.bandwidth())            
+                    .on("click", (event, index) => {                
+                        sendToNodeRed({x:X[index],y:Y[index]});
+                    });
+            
+                if (title) {bar.append("title")
+                    .text(title);}
+            
+                svg.append("g")
+                    .attr("transform", `translate(0,${height - marginBottom})`)
+                    .call(xAxis);       
+            
+                return svg.node(); //ATTENTION: THIS MUST BE RETURNED BY THE FUNCTION TO BE USED BY THE WIDGET
+            }
+            
+            //ATTENTION: THIS BELOW MUST BE RETURNED BY THE FUNCTION TO BE USED BY THE WIDGET
+            return BarChart(d3Data, {
+                x: d => d.letter,
+                y: d => d.frequency,
+                xDomain: d3.groupSort(d3Data, ([d]) => -d.frequency, d => d.letter), // sort by descending frequency
+                yFormat: "%",
+                yLabel: "↑ Frequency",
+                width,
+                height,
+                color: "steelblue"
+            });
+        
+        }
+           
+    </pre>
+    <h3>Example of D3 configuration as an input payload of node</h3>
+    <pre>
+        const d3Configuration=String.raw`
+
+            /**
+            * 
+            * @param  d3: instance of D3 library
+            * @param  d3Data: data sent by node-red for rendering with D3.
+            * @param  width : width of the widget display space
+            * @param  height :height of the widget display space 
+            * @param  sendToNodeRed: function used to send back data from widget to node-red
+            * @returns D3 chart instance
+            */
+            async function drawD3Chart(d3,d3Data,width,height,sendToNodeRed){
+
+                function BarChart(data, {
+                    x = (d, i) => i, // given d in data, returns the (ordinal) x-value
+                    y = d => d, // given d in data, returns the (quantitative) y-value
+                    title, // given d in data, returns the title text
+                    marginTop = 20, // the top margin, in pixels
+                    marginRight = 0, // the right margin, in pixels
+                    marginBottom = 30, // the bottom margin, in pixels
+                    marginLeft = 40, // the left margin, in pixels
+                    width = 640, // the outer width of the chart, in pixels
+                    height = 400, // the outer height of the chart, in pixels
+                    xDomain, // an array of (ordinal) x-values
+                    xRange = [marginLeft, width - marginRight], // [left, right]
+                    yType = d3.scaleLinear, // y-scale type
+                    yDomain, // [ymin, ymax]
+                    yRange = [height - marginBottom, marginTop], // [bottom, top]
+                    xPadding = 0.1, // amount of x-range to reserve to separate bars
+                    yFormat, // a format specifier string for the y-axis
+                    yLabel, // a label for the y-axis
+                    color = "currentColor" // bar fill color
+                } = {}) {
+
+                    // Compute values.
+                    const X = d3.map(data, x);
+                    const Y = d3.map(data, y);
+                
+                    // Compute default domains, and unique the x-domain.
+                    if (xDomain === undefined) {xDomain = X;}
+                    if (yDomain === undefined) {yDomain = [0, d3.max(Y)];}
+                    xDomain = new d3.InternSet(xDomain);
+                
+                    // Omit any data not present in the x-domain.
+                    const I = d3.range(X.length).filter(i => xDomain.has(X[i]));
+                
+                    // Construct scales, axes, and formats.
+                    const xScale = d3.scaleBand(xDomain, xRange).padding(xPadding);
+                    const yScale = yType(yDomain, yRange);
+                    const xAxis = d3.axisBottom(xScale).tickSizeOuter(0);
+                    const yAxis = d3.axisLeft(yScale).ticks(height / 40, yFormat);
+                
+                    // Compute titles.
+                    if (title === undefined) {
+                        const formatValue = yScale.tickFormat(100, yFormat);
+                        title = i => X[i]+"\n"+formatValue(Y[i]);
+                    } else {
+                        const O = d3.map(data, d => d);
+                        const T = title;
+                        title = i => T(O[i], i, data);
+                    }
+                
+                    const svg = d3.create("svg")
+                        .attr("width", width)
+                        .attr("height", height)
+                        .attr("viewBox", [0, 0, width, height])            
+                        .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+                
+                    svg.append("g")
+                        .attr("transform", "translate("+marginLeft+",0)")
+                        .call(yAxis)
+                        .call(g => g.select(".domain").remove())
+                        .call(g => g.selectAll(".tick line").clone()
+                            .attr("x2", width - marginLeft - marginRight)
+                            .attr("stroke-opacity", 0.1))
+                        .call(g => g.append("text")
+                            .attr("x", -marginLeft)
+                            .attr("y", 10)
+                            .attr("fill", "currentColor")
+                            .attr("text-anchor", "start")
+                            .text(yLabel));
+                
+                    const bar = svg.append("g")
+                        .attr("fill", color)
+                        .selectAll("rect")
+                        .data(I)
+                        .join("rect")
+                        .attr("x", i => xScale(X[i]))
+                        .attr("y", i => yScale(Y[i]))
+                        .attr("height", i => yScale(0) - yScale(Y[i]))
+                        .attr("width", xScale.bandwidth())            
+                        .on("click", (event, index) => {                
+                            sendToNodeRed({x:X[index],y:Y[index]});
+                        });
+                
+                    if (title) {bar.append("title")
+                        .text(title);}
+                
+                    svg.append("g")
+                        .attr("transform", "translate(0,"+(height - marginBottom)+")")
+                        .call(xAxis);       
+                
+                    return svg.node(); //ATTENTION: THIS MUST BE RETURNED BY THE FUNCTION TO BE USED BY THE WIDGET
+                }
+                
+                //ATTENTION: THIS BELOW MUST BE RETURNED BY THE FUNCTION TO BE USED BY THE WIDGET
+                return BarChart(d3Data, {
+                    x: d => d.letter,
+                    y: d => d.frequency,
+                    xDomain: d3.groupSort(d3Data, ([d]) => -d.frequency, d => d.letter), // sort by descending frequency
+                    yFormat: "%",
+                    yLabel: "↑ Frequency",
+                    width,
+                    height,
+                    color: "steelblue"
+                });
+                
+            }
+                `;
+
+        msg["configuration"]=d3Configuration;
+        
+        return msg;
+    </pre>
+</script>
