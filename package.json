@@ -1,6 +1,6 @@
 {
     "name": "node-red-contrib-snap4city-d3-dashboard-widgets",
-    "version": "0.0.7",
+    "version": "0.0.8",
     "description": "Nodes for Snap4city project for D3 Dashboard Widgets",
     "dependencies": {
         "@mysql/xdevapi": "^8.0.21",
