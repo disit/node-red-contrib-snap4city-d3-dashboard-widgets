@@ -16,15 +16,14 @@
 module.exports = function (RED) {
 
     function Snap4D3Dashboard(config) {
-        const WebSocket = require('ws');
-        const util = require('util');
-        const s4cUtility = require("./snap4city-utility.js");
+		RED.nodes.createNode(this, config);
+        var node = this;
+        var WebSocket = require('ws');
+        var s4cUtility = require("./snap4city-utility.js");
+        const logger = s4cUtility.getLogger(RED, node);
         const uid = s4cUtility.retrieveAppID(RED);
-        RED.nodes.createNode(this, config);
-        const node = this;
-        //const wsServer = (RED.settings.wsServerUrl ? RED.settings.wsServerUrl : "wss://dashboard.km4city.org:443/server");
-        //const wsServerHttpOrigin = (RED.settings.wsServerHttpOrigin ? RED.settings.wsServerHttpOrigin : "https://www.snap4city.org");
-
+        
+        logger.debug("Snap4D3Dashboard");
         const wsServer = s4cUtility.settingUrl(RED,node, "wsServerUrl", "wss://www.snap4city.org", "/wsserver", true);
         const wsServerHttpOrigin = s4cUtility.settingUrl(RED,node, "wsServerHttpOrigin", "wss://www.snap4city.org", "", true);
 
@@ -47,22 +46,24 @@ module.exports = function (RED) {
         node.httpRoot = null;
 
         node.metricName = "NR_" + node.id.replace(".", "_");
-        node.metricType = config.metricType;        
+        node.metricType = "Series";        
         node.metricShortDesc = config.metricName;
         node.metricFullDesc = config.metricName;
 
-        function getD3Configuration(msg,config){
+        node.getD3Configuration = function(msg,config){
+			
+			logger.info("\n getD3Configuration");
             return msg.configuration && msg.configuration.trim().length!=0 ? msg.configuration : config.d3Configuration;
         }
 
-        function senDataToWidget(msg,timeout){
-
-            const d3Configuration = getD3Configuration(msg,config);
+        node.senDataToWidget = function(msg,timeout){
+            logger.info("\n senDataToWidget");
+            const d3Configuration = node.getD3Configuration(msg,config);
             
 
-            console.log("\n\n\n\n\n\n");
-            console.log(d3Configuration);
-            console.log("\n\n\n\n\n\n");
+            logger.info("\n d3Configuration");
+            logger.info(d3Configuration);
+            logger.info("\n");
 
             const newMetricData = {
                 msgType: "AddMetricData",
@@ -83,12 +84,13 @@ module.exports = function (RED) {
 
             const metricDataAsJson = JSON.stringify(newMetricData);           
             
-            console.log(metricDataAsJson);
+            logger.info(metricDataAsJson);
             setTimeout(function () {
                 try {
+                    logger.info("Sending inside timeout");
                     node.ws.send(metricDataAsJson);
                 } catch (e) {
-                    util.log("Error sending data to WebSocket for Snap4D3 node " + node.name + ": " + e);
+                    logger.error("Error sending data to WebSocket for Snap4D3 node " + node.name + ": " + e);
                 }
             }, timeout);
 
@@ -96,7 +98,7 @@ module.exports = function (RED) {
         }
 
         node.on('input', function (msg) {
-            util.log("Flow input received for Snap4D3 node " + node.name + ": " + JSON.stringify(msg));
+            logger.info("Flow input received for Snap4D3 node " + node.name + ": " + JSON.stringify(msg));
 
             let timeout = 0;
             if ((new Date().getTime() - node.wsStart) > parseInt(RED.settings.wsReconnectTimeout ? RED.settings.wsReconnectTimeout : 1200) * 1000) {
@@ -110,7 +112,7 @@ module.exports = function (RED) {
                     node.ws.terminate();
                     node.ws = null;
                 } else {
-                    util.log("Why ws is null? I am in node.on('input'");
+                    logger.info("Why ws is null? I am in node.on('input'");
                 }
                 node.ws = new WebSocket(wsServer, {
                     origin: wsServerHttpOrigin
@@ -120,25 +122,25 @@ module.exports = function (RED) {
                 node.ws.on('message', node.wsMessageCallback);
                 node.ws.on('close', node.wsCloseCallback);
                 node.ws.on('pong', node.wsHeartbeatCallback);
-                util.log("Snap4D3 node " + node.name + " is reconnetting to open WebSocket");
+                logger.info("Snap4D3 node " + node.name + " is reconnetting to open WebSocket");
                 timeout = 1000;
             }
             node.wsStart = new Date().getTime();
 
-            senDataToWidget(msg,timeout);
+            node.senDataToWidget(msg,timeout);
 
         });
 
         node.on('close', function (removed, closedDoneCallback) {
             if (removed) {
                 // Cancellazione nodo
-                util.log("Snap4D3 node " + node.name + " is being removed from flow");
+                logger.info("Snap4D3 node " + node.name + " is being removed from flow");
 
                 node.deleteEmitter();
                 node.deleteMetric();
             } else {
                 // Riavvio nodo
-                util.log("Snap4D3 node " + node.name + " is being rebooted");
+                logger.info("Snap4D3 node " + node.name + " is being rebooted");
                 node.notRestart = true;
                 node.ws.terminate();
             }
@@ -146,7 +148,7 @@ module.exports = function (RED) {
             closedDoneCallback();
         });
 
-        function registerSnap4D3Node(){
+        node.registerSnap4D3Node = function(){
             const accessToken = s4cUtility.retrieveAccessToken(RED, node, config.authentication, uid);
 
             // register Snap4D3 node as emitter to receive data from widget
@@ -189,7 +191,7 @@ module.exports = function (RED) {
                 flowId: node.z,
                 flowName: node.flowName,
                 widgetType: "widgetSnap4D3",
-                widgetTitle: node.name,
+                widgetTitle: node.widgetTitle,
                 dashboardTitle: '',
                 dashboardId: node.dashboardId,
                 httpRoot: node.httpRoot,
@@ -203,13 +205,13 @@ module.exports = function (RED) {
                         try {
                             node.ws.ping(); // KEEP ALIVE LOGIC
                         } catch (e) {
-                            util.log("Errore on Ping " + e);
+                            logger.info("Errore on Ping " + e);
                         }
                     }
                 }, 30000);
             }
 
-            util.log("Snap4D3 node " + node.name + " IS GOING TO CONNECT WS");
+            logger.info("Snap4D3 node " + node.name + " IS GOING TO CONNECT WS");
             if (payloadMetric.accessToken != "") {
                 setTimeout(function () {
                     node.ws.send(JSON.stringify(payloadMetric));
@@ -240,7 +242,7 @@ module.exports = function (RED) {
                     }
                 }
 
-                registerSnap4D3Node();
+                node.registerSnap4D3Node();
                 
             } else {
                 node.status({
@@ -251,7 +253,7 @@ module.exports = function (RED) {
             }
         };
 
-        function sendDataToNextNode(data){
+        node.sendDataToNextNode = function(data){
             node.status({
                 fill: "green",
                 shape: "dot",
@@ -265,7 +267,7 @@ module.exports = function (RED) {
             return message;
         }
 
-        function parseJSONOrReturnNull(jsonData){
+        node.parseJSONOrReturnNull = function(jsonData){
             try{
                 return JSON.parse(jsonData);
             }catch(e){
@@ -275,13 +277,13 @@ module.exports = function (RED) {
 
         node.wsMessageCallback = function (data) {
             const response = JSON.parse(data);
-            util.log(response);
+            logger.info(response);
             switch (response.msgType) {
             case "AddEmitter": case "AddEditMetric":
                 if (response.result === "Ok") {
                     node.widgetUniqueName = response.widgetUniqueName;
 
-                    util.log("WebSocket server correctly added/edited emitter type or metric for Snap4D3 node " + node.name + ": " + response.result);
+                    logger.info("WebSocket server correctly added/edited emitter type or metric for Snap4D3 node " + node.name + ": " + response.result);
                     node.status({
                         fill: "green",
                         shape: "dot",
@@ -292,7 +294,7 @@ module.exports = function (RED) {
                         node.intervalID = null;
                     }
                 } else {                    
-                    util.log("WebSocket server could not add/edit emitter type or metric for Snap4D3 node " + node.name + ": " + response.result);
+                    logger.info("WebSocket server could not add/edit emitter type or metric for Snap4D3 node " + node.name + ": " + response.result);
                     node.status({
                         fill: "red",
                         shape: "dot",
@@ -304,11 +306,11 @@ module.exports = function (RED) {
 
             case "DelEmitter": case "DelMetric":
                 if (response.result === "Ok") {
-                    util.log("WebSocket server correctly deleted emitter type or metric for Snap4D3 node " + node.name + ": " + response.result);
+                    logger.info("WebSocket server correctly deleted emitter type or metric for Snap4D3 node " + node.name + ": " + response.result);
                 } else {                    
-                    util.log("WebSocket server could not delete emitter type or metric for Snap4D3 node " + node.name + ": " + response.result);
+                    logger.info("WebSocket server could not delete emitter type or metric for Snap4D3 node " + node.name + ": " + response.result);
                 }
-                util.log("Closing webSocket server for Snap4D3 node " + node.name);
+                logger.info("Closing webSocket server for Snap4D3 node " + node.name);
                 node.notRestart = true;
                 if(node.ws!=null){
                     node.ws.terminate();
@@ -316,7 +318,7 @@ module.exports = function (RED) {
                 break;                
             case "DataToEmitter":
 
-                util.log("[DATA TO EMITTER] "+data);                
+                logger.info("[DATA TO EMITTER] "+data);                
 
                 if(response.newValue == "dashboardDeleted"){
                     node.status({
@@ -333,11 +335,11 @@ module.exports = function (RED) {
                    
                     let outputMessage = {};
 
-                    const messageFromWidget = parseJSONOrReturnNull(response.newValue);
+                    const messageFromWidget = node.parseJSONOrReturnNull(response.newValue);
                     
                     if(messageFromWidget!=null &&  messageFromWidget.widgetOperation== "SendToSnap4D3"){ // received data from widget
 
-                        outputMessage = sendDataToNextNode(messageFromWidget.widgetData);                       
+                        outputMessage = node.sendDataToNextNode(messageFromWidget.widgetData);                       
                     }                    
 
                     node.ws.send(JSON.stringify({
@@ -353,14 +355,14 @@ module.exports = function (RED) {
                 
                 break;
             default:
-                util.log(response.msgType);
+                logger.info(response.msgType);
                 break;
             }
         };
 
         node.wsCloseCallback = function (e) {
-            util.log("Snap4D3 node " + node.name + " closed WebSocket");
-            util.log("Snap4D3 closed reason " + e);
+            logger.info("Snap4D3 node " + node.name + " closed WebSocket");
+            logger.info("Snap4D3 closed reason " + e);
             if (!(node.dashboardId != null && node.dashboardId != "")) {
                 node.status({
                     fill: "red",
@@ -383,7 +385,7 @@ module.exports = function (RED) {
                 node.ws.removeListener('pong', node.wsHeartbeatCallback);
                 node.ws = null;
             } else {
-                util.log("Why ws is null? I am in node.wsCloseCallback");
+                logger.info("Why ws is null? I am in node.wsCloseCallback");
             }
 
             const wsServerRetryActive = (RED.settings.wsServerRetryActive ? RED.settings.wsServerRetryActive : "yes");
@@ -399,7 +401,7 @@ module.exports = function (RED) {
                     text: "lost connection from " + wsServer + " will try to reconnect in " + reconnectionRetryTime + "s"
                 });
 
-                util.log("Snap4D3 node " + node.name + " will try to reconnect to WebSocket in " + reconnectionRetryTime + "s");
+                logger.info("Snap4D3 node " + node.name + " will try to reconnect to WebSocket in " + reconnectionRetryTime + "s");
                 if (!node.intervalID) {
                     node.intervalID = setInterval(node.wsInit, reconnectionRetryTime * 1000);
                 }
@@ -408,11 +410,11 @@ module.exports = function (RED) {
         };
 
         node.wsErrorCallback = function (e) {
-            util.log("Snap4D3 node " + node.name + " got WebSocket error: " + e);
+            logger.info("Snap4D3 node " + node.name + " got WebSocket error: " + e);
         };
 
         node.deleteEmitter = function () {
-            util.log("Deleting emitter via webSocket for Snap4D3 node " + node.name);
+            logger.info("Deleting emitter via webSocket for Snap4D3 node " + node.name);
             const newMsg = {
                 msgType: "DelEmitter",
                 nodeId: node.id,
@@ -426,12 +428,12 @@ module.exports = function (RED) {
             try {
                 node.ws.send(JSON.stringify(newMsg));
             } catch (e) {
-                util.log("Error deleting emitter via webSocket for Snap4D3 node " + node.name + ": " + e);
+                logger.info("Error deleting emitter via webSocket for Snap4D3 node " + node.name + ": " + e);
             }
         };
 
         node.deleteMetric = function () {
-            util.log("Deleting metric via webSocket for Snap4D3 node " + node.name);
+            logger.info("Deleting metric via webSocket for Snap4D3 node " + node.name);
             const newMsg = {
                 msgType: "DelMetric",
                 nodeId: node.id,
@@ -447,29 +449,23 @@ module.exports = function (RED) {
             try {
                 node.ws.send(JSON.stringify(newMsg));
             } catch (e) {
-                util.log("Error deleting metric via webSocket for Snap4D3 node " + node.name + ": " + e);
+                logger.info("Error deleting metric via webSocket for Snap4D3 node " + node.name + ": " + e);
             }
         };
 
         node.wsHeartbeatCallback = function () {
-            if (node.ws != null) {
-                try {
-                    node.ws.ping();
-                } catch (e) {
-                    util.log("Errore on Ping " + e);
-                }
-            }
+            logger.silly("heartbeat callback");
         };
 
 
 
         //Lasciarlo, altrimenti va in timeout!!! https://nodered.org/docs/creating-nodes/node-js#closing-the-node
         node.closedDoneCallback = function () {
-            util.log("Snap4D3 node " + node.name + " has been closed");
+            logger.info("Snap4D3 node " + node.name + " has been closed");
         };
 
         node.wsInit = function (e) {
-            util.log("Snap4D3 node " + node.name + " is trying to open WebSocket");
+            logger.info("Snap4D3 node " + node.name + " is trying to open WebSocket");
             try {
                 node.status({
                     fill: "yellow",
@@ -487,10 +483,10 @@ module.exports = function (RED) {
                     node.ws.on('pong', node.wsHeartbeatCallback);
                     node.wsStart = new Date().getTime();
                 } else {
-                    util.log("Snap4D3 node " + node.name + " already open WebSocket");
+                    logger.info("Snap4D3 node " + node.name + " already open WebSocket");
                 }
             } catch (e) {
-                util.log("Snap4D3 node " + node.name + " could not open WebSocket");
+                logger.info("Snap4D3 node " + node.name + " could not open WebSocket");
                 node.status({
                     fill: "red",
                     shape: "ring",
@@ -503,8 +499,9 @@ module.exports = function (RED) {
         //Inizio del "main"
         try {
             node.wsInit();
+			logger.info("\n senDataToWidget");
         } catch (e) {
-            util.log("Snap4D3 node " + node.name + " got main exception connecting to WebSocket");
+            logger.info("Snap4D3 node " + node.name + " got main exception connecting to WebSocket");
         }
 
     }
