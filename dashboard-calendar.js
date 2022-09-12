@@ -297,7 +297,7 @@ module.exports = function (RED) {
         };
 
         node.wsHeartbeatCallback = function () {
-
+            logger.silly("heartbeat callback");
         };
 
 
